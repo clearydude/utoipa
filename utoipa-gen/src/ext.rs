@@ -6,6 +6,8 @@ use crate::path::PathOperation;
 
 #[cfg(feature = "actix_extras")]
 pub mod actix;
+#[cfg(feature = "rocket_extras")]
+pub mod rocket;
 
 #[cfg_attr(feature = "debug", derive(Debug))]
 pub struct Argument<'a> {
@@ -26,21 +28,29 @@ pub enum ArgumentIn {
     Path,
 }
 
+#[cfg_attr(feature = "debug", derive(Debug))]
 pub struct ResolvedPath {
     pub path: String,
-    pub args: Vec<String>,
+    pub args: Vec<ResolvedArg>,
 }
 
+#[cfg_attr(feature = "debug", derive(Debug))]
+pub enum ResolvedArg {
+    Path(String),
+    Query(String),
+}
+
+#[cfg_attr(feature = "debug", derive(Debug))]
 pub struct ResolvedOperation {
     pub path_operation: PathOperation,
     pub path: String,
 }
 
 pub trait ArgumentResolver {
-    fn resolve_path_arguments<'a>(
-        _: &'a Punctuated<FnArg, Comma>,
-        _: &'a Option<ResolvedPath>,
-    ) -> Option<Vec<Argument<'a>>> {
+    fn resolve_path_arguments(
+        _: &Punctuated<FnArg, Comma>,
+        _: Option<Vec<ResolvedArg>>,
+    ) -> Option<Vec<Argument<'_>>> {
         None
     }
 }
@@ -59,9 +69,12 @@ pub trait PathOperationResolver {
 
 pub struct PathOperations;
 
-#[cfg(not(feature = "actix_extras"))]
+// #[cfg(not(feature = "actix_extras"))]
+#[cfg(not(any(feature = "actix_extras", feature = "rocket_extras")))]
 impl ArgumentResolver for PathOperations {}
-#[cfg(not(feature = "actix_extras"))]
+// #[cfg(not(feature = "actix_extras"))]
+#[cfg(not(any(feature = "actix_extras", feature = "rocket_extras")))]
 impl PathResolver for PathOperations {}
-#[cfg(not(feature = "actix_extras"))]
+// #[cfg(all(not(feature = "actix_extras"), not(feature = "rocket_extras")))]
+#[cfg(not(any(feature = "actix_extras", feature = "rocket_extras")))]
 impl PathOperationResolver for PathOperations {}

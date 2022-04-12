@@ -211,6 +211,7 @@ impl PathResolver for PathOperations {
     }
 }
 
+#[inline]
 fn is_valid_request_type(ident: Option<&Ident>) -> bool {
     matches!(ident, Some(operation) if ["get", "post", "put", "delete", "head", "connect", "options", "trace", "patch"]
         .iter().any(|expected_operation| operation == expected_operation))

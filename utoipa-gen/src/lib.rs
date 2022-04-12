@@ -35,9 +35,9 @@ mod openapi;
 mod path;
 mod security_requirement;
 
-use crate::path::{Path, PathAttr, PathOperation};
+use crate::path::{Path, PathAttr};
 
-#[cfg(feature = "actix_extras")]
+#[cfg(any(feature = "actix_extras", feature = "rocket_extras"))]
 use ext::ArgumentResolver;
 
 #[proc_macro_error]
@@ -540,32 +540,30 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 pub fn path(attr: TokenStream, item: TokenStream) -> TokenStream {
     let path_attribute = syn::parse_macro_input!(attr as PathAttr);
 
-    #[cfg(feature = "actix_extras")]
+    #[cfg(any(feature = "actix_extras", feature = "rocket_extras"))]
     let mut path_attribute = path_attribute;
 
     let ast_fn = syn::parse::<ItemFn>(item).unwrap_or_abort();
     let fn_name = &*ast_fn.sig.ident.to_string();
 
-    let resolved_operation = &mut PathOperations::resolve_operation(&ast_fn);
-    let resolved_path = PathOperations::resolve_path(
+    let mut resolved_operation = PathOperations::resolve_operation(&ast_fn);
+
+    let mut resolved_path = PathOperations::resolve_path(
         &resolved_operation
             .as_mut()
             .map(|operation| mem::take(&mut operation.path))
             .or_else(|| path_attribute.path.as_ref().map(String::to_string)), // cannot use mem take because we need this later
     );
 
-    #[cfg(feature = "actix_extras")]
+    #[cfg(any(feature = "actix_extras", feature = "rocket_extras"))]
     {
-        let arguments = PathOperations::resolve_path_arguments(&ast_fn.sig.inputs, &resolved_path);
-        path_attribute.update_parameters(arguments);
+        let args = resolved_path.as_mut().map(|path| mem::take(&mut path.args));
+        let arguments = PathOperations::resolve_path_arguments(&ast_fn.sig.inputs, args);
+        // path_attribute.update_parameters(arguments);
     }
 
     let path = Path::new(path_attribute, fn_name)
-        .path_operation(
-            resolved_operation.as_mut().map(|operation| {
-                mem::replace(&mut operation.path_operation, PathOperation::Options)
-            }),
-        )
+        .path_operation(resolved_operation.map(|operation| operation.path_operation))
         .path(|| resolved_path.map(|path| path.path))
         .doc_comments(CommentAttributes::from_attributes(&ast_fn.attrs).0)
         .deprecated(ast_fn.attrs.iter().find_map(|attr| {
@@ -777,7 +775,7 @@ impl ToTokens for Required {
     }
 }
 
-/// Parses a type information in uotapi macro parameters.
+/// Parses a type information in utoipa macro parameters.
 ///
 /// Supports formats:
 ///   * `type` type is just a simple type identifier
